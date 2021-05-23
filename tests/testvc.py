@@ -21,4 +21,4 @@ async def join(ctx):
         a +=1
     print(a)
 
-bot.run("ODI1NjA5NDk0MDAwMDQyMDE1.YGAawg.4D09NTbW5nAmFFw5-J5eDpeXvDs")
+bot.run("")
