@@ -13,4 +13,4 @@ async def ping(ctx):
     message = await ctx.send("Pong")
     print("got command")
 
-bot.run('ODI1NjA5NDk0MDAwMDQyMDE1.YGAawg.4D09NTbW5nAmFFw5-J5eDpeXvDs')
+bot.run('')
