@@ -91,7 +91,14 @@ async def restart(ctx):
         await ctx.send("restarting....")
         os.system(r'python3 "/home/pi/Desktop/discord-multipourpous-bot/Main.py"')
     
-
+#avatar command
+@bot.command()
+async def avatar(ctx, *,  avamember : discord.Member=None):
+    userAvatarUrl = avamember.avatar_url
+    embed = discord.Embed(color=0xdfa3ff, description=user.mention)
+    embed.add_image(url = userAvatarUrl)
+    await ctx.send(embed=embed)
+    
 #adding to db
 @bot.command()
 async def addword(ctx,arg):
