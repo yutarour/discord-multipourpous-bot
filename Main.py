@@ -27,7 +27,9 @@ from io import BytesIO
 from discord import FFmpegPCMAudio
 import subprocess
 import shlex
-
+import requests
+import random
+from dotenv import load_dotenv
 from youtube_dl.postprocessor import ffmpeg
 
 #SETTING UP LOGGING
@@ -37,7 +39,11 @@ from youtube_dl.postprocessor import ffmpeg
 #setting up simple logging
 bot = commands.Bot(command_prefix='!')
 queue = {}
+active = {}
 
+#load token
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 data = {}
 load_file = 'players.json'
@@ -139,31 +145,63 @@ def hasAny (k, str):
 
 #quiet mode   
 @bot.command(pass_context=True)
-async def quiet(ctx,opt=None):
-    if data.get(str(ctx.message.guild.id)) == None:
+async def quiet(ctx,*,opt=None):
+    if quietmode_data.get(str(ctx.message.guild.id)) == None:
         quietmode_data[str(ctx.message.guild.id)] = []
         quietmode_data[str(ctx.message.guild.id)].append({
-                    'quiet':'False'
+                    'quiet':False
                     })
-    if opt == None:
+        
+    if opt == 'true' or opt == 'True':
+        quietmode_data[str(ctx.message.guild.id)][0]["quiet"]=True
+        await ctx.send("Quiet Mode enabled")
+
+    if opt == 'false'or opt =='False':
+        quietmode_data[str(ctx.message.guild.id)][0]["quiet"]=False
+        await ctx.send("Quiet Mode disabled")
+
+    if opt == None and (opt!='true' or opt !='false' or opt !='True' or opt != 'False'):
         embedVar = discord.Embed(
         title="!quiet", description="Can be invoked with !quiet with parameters true or false. used to turn off messaging every time it detects a word", color=0x336EFF
                 )
         await ctx.send(embed = embedVar)
-        
-    if opt == 'true' or 'True':
-        data[str(ctx.message.guild.id)][0]["quiet"] = 'True'
 
-    if opt == 'false'or'False':
-            data[str(ctx.message.guild.id)][0]["quiet"] = 'False'
-    else:
-        await ctx.send('quiet mode can not be '+opt+' please use True or False')
 
+#score viewing
+@bot.command(pass_context=True)
+async def score(ctx):
+    await ctx.send(ctx.message.author.mention +" has "+ str(data[str(ctx.message.author.id)][0]["points"]) +" Points")
+
+#random shindann
+@bot.command(pass_context=True)
+async def shindan(ctx):
+    url = 'https://shindanmaker.com/'+str(random.randint(10000,99999))
+    r = requests.get(url)
+
+    while r.status_code!=200:
+        url = 'https://shindanmaker.com/'+str(random.randint(10000,99999))
+        r = requests.get(url)
+
+    await ctx.send(url+" requested by "+ctx.message.author.mention)
 
 
 #message handler
 @bot.event
 async def on_message(message):
+
+    #setting active to false so bot does not error
+    if active.get(str(message.guild.id))==None:
+        active[str(message.guild.id)] = []
+        active[str(message.guild.id)].append({
+            'status':False
+            })
+    
+    if quietmode_data.get(str(message.guild.id))==None:
+        quietmode_data[str(message.guild.id)] = []
+        quietmode_data[str(message.guild.id)].append({
+                'quiet':False
+            })
+
     a= datetime.now().hour
     if a == 15:
         with open(load_file,'w') as f:
@@ -185,8 +223,8 @@ async def on_message(message):
                 print(message.author.id)
                 print(data[str(message.author.id)])
                 data[str(message.author.id)][0]["points"] +=1  
-                #if active[str(message.guild.id)][0] != 'Active':
-                await message.channel.send("Detected word. word count currently "+str(data[str(message.author.id)][0]['points'])+" Message is: "+str(message.content)+" From: "+str(message.author))
+                if active[str(message.guild.id)][0] != 'Active' and quietmode_data[str(message.guild.id)][0]['quiet'] == False:
+                    await message.channel.send("Detected word. word count currently "+str(data[str(message.author.id)][0]['points'])+" Message is: "+str(message.content)+" From: "+str(message.author))
     await bot.process_commands(message)
 
 
@@ -204,6 +242,7 @@ async def backup(ctx):
         pickle.dump(L,g)
     with open(quiet_file,'w') as f:
         js.dump(quietmode_data,f)
+        print(quietmode_data)
 
 @bot.command()
 async def verify(ctx):
@@ -420,7 +459,7 @@ class FFmpegPCMAudio2(discord.AudioSource):
 
 
 mp3_fp = io.BytesIO()
-active = {}
+
 
 class tts(commands.Cog):
     global mp3_fp
@@ -504,9 +543,4 @@ players = {}
 #    channel = ctx.author.voice.channel
 #    await channel.connect()
 
-
-
-
-
-
-bot.run('token')
+bot.run(TOKEN)
