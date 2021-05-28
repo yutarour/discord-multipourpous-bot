@@ -94,8 +94,14 @@ async def restart(ctx):
 #avatar command
 @bot.command()
 async def avatar(ctx, *,  avamember : discord.Member=None):
-    userAvatarUrl = avamember.avatar_url
-    embed = discord.Embed(color=0xdfa3ff, description=ctx.author.mention)
+    if avamember == None:
+        userAvatarUrl = (ctx.message.author).avatar_url
+        embed = discord.Embed(color=0xdfa3ff,title = 'Avatar', description=ctx.author.mention)
+    else:
+        userAvatarUrl = avamember.avatar_url
+        embed = discord.Embed(color=0xdfa3ff,title = 'Avatar', description=avamember.mention)
+        
+    
     embed.add_image(url = userAvatarUrl)
     await ctx.send(embed=embed)
     
