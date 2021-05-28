@@ -54,7 +54,7 @@ with open(quiet_file,'r') as f:
 #word list
 L=[]
 #open and load list change later
-with open ('scrap.db', 'rb') as F:
+with open ('db.db', 'rb') as F:
     L = list(pickle.load(F))
     print(L)
     print("loaded file")
@@ -83,8 +83,7 @@ async def ping(ctx):
 async def restart(ctx):
     if ctx.message.author.id == 500150174925193246:
         await ctx.send("restarting....")
-        os.system(r'py "C:\Users\yutar_p8dg94\OneDrive\Desktop\programming\shimoneta detector\Main.py"')
-
+        os.system(r'python3 "/home/pi/Desktop/discord-multipourpous-bot/Main.py"')
     
 
 #adding to db
@@ -186,8 +185,8 @@ async def on_message(message):
                 print(message.author.id)
                 print(data[str(message.author.id)])
                 data[str(message.author.id)][0]["points"] +=1  
-                if active[str(message.guild.id)][0] != 'Active':
-                    await message.channel.send("Detected word. word count currently "+str(data[str(message.author.id)][0]['points'])+" Message is: "+str(message.content)+" From: "+str(message.author))
+                #if active[str(message.guild.id)][0] != 'Active':
+                await message.channel.send("Detected word. word count currently "+str(data[str(message.author.id)][0]['points'])+" Message is: "+str(message.content)+" From: "+str(message.author))
     await bot.process_commands(message)
 
 
@@ -343,13 +342,13 @@ class Music(commands.Cog):
         global queue
         print(queue)
    
-        if 'youtube.com' in searchterm:
+        if 'youtube.com' or 'youtu.be' in searchterm:
             try:
                 queue[ctx.guild.id].append(searchterm)
             except:
                 queue[ctx.guild.id] = [searchterm]
 
-        elif 'youtube.com' not in searchterm:
+        elif 'youtube.com' or 'youtu.be'not in searchterm:
             results =search(searchterm, offset=1, mode = "dict", max_results=1).result()   
             url = results['search_result'][0]['link']
             try:
@@ -476,6 +475,8 @@ class tts(commands.Cog):
     async def say(self,ctx,*,content):  
         print(active)
         if active[str(ctx.guild.id)][0] == 'Active':
+            mp3_fp.flush()
+            mp3_fp.seek(0)
             tts = gTTS(content,active[str(ctx.guild.id)][1],active[str(ctx.guild.id)][2],False)
             tts.write_to_fp(mp3_fp)
             mp3_fp.seek(0)
@@ -508,4 +509,4 @@ players = {}
 
 
 
-bot.run('TOKEN')
+bot.run('token')
