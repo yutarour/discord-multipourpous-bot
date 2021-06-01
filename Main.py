@@ -108,7 +108,7 @@ async def avatar(ctx, *,  avamember : discord.Member=None):
         embed = discord.Embed(color=0xdfa3ff,title = 'Avatar', description=avamember.mention)
         
     
-    embed.add_image(url = userAvatarUrl)
+    embed.set_image(url = userAvatarUrl)
     await ctx.send(embed=embed)
 
 #adding to db
