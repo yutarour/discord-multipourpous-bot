@@ -57,6 +57,13 @@ with open(quiet_file,'r') as f:
     quietmode_data = js.load(f)
     print(quietmode_data)
 
+#to store which channel to post lfg requests to
+lfg_channels = {}
+lfg_file = 'lfg.json'
+with open(lfg_file,'r')as f:
+    lfg_channels = js.load(f)
+    print(lfg_channels)
+
 #word list
 L=[]
 #open and load list change later
@@ -91,7 +98,6 @@ async def restart(ctx):
         await ctx.send("restarting....")
         os.system(r'python3 "/home/pi/Desktop/discord-multipourpous-bot/Main.py"')
     
-#avatar command
 @bot.command()
 async def avatar(ctx, *,  avamember : discord.Member=None):
     if avamember == None:
@@ -104,7 +110,7 @@ async def avatar(ctx, *,  avamember : discord.Member=None):
     
     embed.add_image(url = userAvatarUrl)
     await ctx.send(embed=embed)
-    
+
 #adding to db
 @bot.command()
 async def addword(ctx,arg):
@@ -256,6 +262,10 @@ async def backup(ctx):
     with open(quiet_file,'w') as f:
         js.dump(quietmode_data,f)
         print(quietmode_data)
+
+    with open(lfg_file,'w')as f:
+        js.dump(lfg_channels,f)
+        print(lfg_channels)
 
 @bot.command()
 async def verify(ctx):
@@ -546,8 +556,69 @@ bot.add_cog(tts(bot))
 
 #@bot.event
 #async def on_message(message):
-    
+lfg_chan = 743329302480814251
+lfg_inv = "https://discord.gg/Y4VbBdBG8s"
+lfg_guild = 500457407005327361
 
+
+
+class lfg(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+    
+    #command to post link to server
+    global lfg_chan
+    @commands.command(pass_context = True)
+    async def lfg(self,ctx):
+        if ctx.guild.id != lfg_guild:
+            embed = discord.Embed(color=0x483d8b,title = 'LFG', description="Please use This Server for LFG."+lfg_inv)
+            await ctx.send(embed=embed)
+        elif ctx.guild.id == lfg_guild:
+            if ctx.channel.id != lfg_chan:
+                embed = discord.Embed(color=0xb536f0,title = 'LFG', description="Please use the LFG channel.")
+                await ctx.send(embed=embed)
+            else:
+                embed = discord.Embed(color=0x00537a,title = 'LFG', description="Please use the recruit command.")
+                await ctx.send(embed=embed)
+
+    @commands.command(pass_context = True)
+    async def setup(self,ctx,*, channel: discord.TextChannel=None):
+        if channel == None:
+            embed = discord.Embed(color=0xff7f50,title = 'LFG setup', description="You need to specify a channel.")
+            await ctx.send(embed = embed)
+
+        if lfg_channels.get(str(ctx.guild.id))==None:
+            lfg_channels[str(ctx.message.guild.id)] = []
+            lfg_channels[str(ctx.message.guild.id)].append({
+                "channel_id":channel.id
+                })
+            embed = discord.Embed(color=0xff7f50,title = 'LFG setup finished', description="You lfg channel has been set to "+str(channel)+" all lfg posts will be posted here.")
+            await ctx.send(embed =embed)
+            #print(lfg_channels)
+        else:
+            lfg_channels[str(ctx.message.guild.id)][0]['channel_id'].append (channel.id)
+            embed = discord.Embed(color=0xff7f50,title = 'LFG setup finished', description="You lfg channel has been changed to "+str(channel)+" all lfg posts will be posted here.")
+            await ctx.send(embed = embed)
+            
+
+    #@commands.command(pass_context=True)
+    #async def msg(self,ctx, *, msg:str):
+    #    for guild in bot.guilds:
+    #        await guild.text_channels[0].send(msg)
+
+    @commands.command(pass_context = True)
+    async def recruit(self,ctx,game_name:str, time:int ,amt_people:int,*,opt_message:str=""):
+        print(lfg_channels)
+        for channels in lfg_channels.values():
+            print(channels[0]['channel_id'])
+            channels = bot.get_channel(channels[0]['channel_id'])
+            author = ctx.author.mention
+            embed = discord.Embed(color=0x00AB9E,title = 'Recruiting '+str(amt_people), description=author +" is looking to play " + game_name +" within the next "+str(time)+" hours. "+author+" is recruiting "+str(amt_people)+" people. "+" Contact "+str(ctx.author)+" for more info "+ opt_message)
+            await channels.send(embed=embed)
+                    #embed = discord.Embed(color=0x00AB9E,title = 'Recruiting '+str(amt_people), description=author +" is looking to play " + game_name +"within the next "+str(time)+" hours. "+author+" is recruiting "+str(amt_people)+" people. "+ opt_message)
+                    #await channel.send(embed=embed)
+
+bot.add_cog(lfg(bot))
 players = {}
 
 
