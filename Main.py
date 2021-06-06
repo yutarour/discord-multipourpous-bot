@@ -11,6 +11,8 @@ from discord.ext.commands.core import command
 from discord.voice_client import VoiceClient
 import discord.utils
 from discord.opus import Encoder
+from youtubesearchpython import VideosSearch
+from youtubesearchpython import *
 
 #from discord.ext.commands import Bot
 import asyncio
@@ -69,7 +71,7 @@ L=[]
 #open and load list change later
 with open ('db.db', 'rb') as F:
     L = list(pickle.load(F))
-    print(L)
+    #print(L)
     print("loaded file")
     F.close()
 
@@ -107,7 +109,6 @@ async def avatar(ctx, *,  avamember : discord.Member=None):
         userAvatarUrl = avamember.avatar_url
         embed = discord.Embed(color=0xdfa3ff,title = 'Avatar', description=avamember.mention)
         
-    
     embed.set_image(url = userAvatarUrl)
     await ctx.send(embed=embed)
 
@@ -402,33 +403,52 @@ class Music(commands.Cog):
     @commands.command()
     async def play(self,ctx, *, searchterm):
         global queue
-        print(queue)
-   
-        if 'youtube.com' or 'youtu.be' in searchterm:
+        #global vid_url
+        #vid_url =''
+        #print(searchterm)
+        if ('youtube.com' in searchterm) or ('youtu.be' in searchterm):
+            #print('NO')
+            vid_url = searchterm
+            #print(vid_url)
             try:
-                queue[ctx.guild.id].append(searchterm)
+                queue[ctx.guild.id].append(vid_url)
             except:
-                queue[ctx.guild.id] = [searchterm]
+                queue[ctx.guild.id] = [vid_url]
 
-        elif 'youtube.com' or 'youtu.be'not in searchterm:
-            results =search(searchterm, offset=1, mode = "dict", max_results=1).result()   
-            url = results['search_result'][0]['link']
+        #elif ('youtube.com' or 'youtu.be')not in searchterm:
+        else:
+            #print('YES')
+            videosearch = VideosSearch(searchterm,limit=1)
+            result = videosearch.result()
+            #print(result)
+            vid_url = result['result'][0]['link']
+            #print(vid_url)
             try:
-                queue[ctx.guild.id].append(url)
+                queue[ctx.guild.id].append(vid_url)
             except:
-                queue[ctx.guild.id] = [url]
+                queue[ctx.guild.id] = [vid_url]
             
 
         server = ctx.message.guild
         voice_channel = server.voice_client
 
         async with ctx.typing():
-            player = await YTDLSource.from_url(queue[ctx.guild.id][0], loop=bot.loop,stream=True)
-            
+            #vid_url = 'https://www.youtube.com/watch?v=n1-Jjxh5RgY'
+            player = await YTDLSource.from_url(vid_url, loop=bot.loop,stream=True)
             voice_channel.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
-
-        await ctx.send(f'**Now playing:** {player.title}')
+        
+        #print("start stack trace here")
+        #print(searchterm)
+        #print(vid_url)
+        videoInfo = Video.getInfo(vid_url, mode = ResultMode.dict)
+        #print(vid_url)
+        tn = videoInfo['thumbnails'][1]['url']
+        title = videoInfo['title']
+        embed = discord.Embed(color=0xb4eeb4,title = 'Music', description='**Now Playing: **'+title+'\n'+vid_url)
+        embed.set_thumbnail(url=tn)
+        await ctx.send(embed = embed)
         del(queue[ctx.guild.id][0])
+        vid_url=''
 
 #@commands.command()
 #async def play(ctx, *, url):
