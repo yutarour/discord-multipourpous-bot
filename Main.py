@@ -1,5 +1,5 @@
+from ast import Bytes
 import io
-from re import search
 import discord
 from discord import client
 from discord import voice_client
@@ -13,7 +13,15 @@ import discord.utils
 from discord.opus import Encoder
 from youtubesearchpython import VideosSearch
 from youtubesearchpython import *
+import ffmpeg
+from pydub import AudioSegment
+import numpy as np
+import math
+from PIL import Image
+import cv2
 
+import ctypes
+import ctypes.util
 #from discord.ext.commands import Bot
 import asyncio
 import logging
@@ -31,7 +39,7 @@ import subprocess
 import shlex
 import requests
 import random
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 from youtube_dl.postprocessor import ffmpeg
 
 #SETTING UP LOGGING
@@ -44,8 +52,8 @@ queue = {}
 active = {}
 
 #load token
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+#load_dotenv()
+#TOKEN = os.getenv("DISCORD_TOKEN")
 
 data = {}
 load_file = 'players.json'
@@ -394,12 +402,17 @@ class Music(commands.Cog):
     async def volume(self, ctx, volume: int):
         """Changes the player's volume"""
 
-        if ctx.voice_client is None:
+        if ctx.voice_client == None:
             return await ctx.send("Not connected to a voice channel.")
 
         ctx.voice_client.source.volume = volume / 100
         await ctx.send(f"Changed volume to {volume}%")
     
+    @commands.command()
+    async def stop(self,ctx):
+        if ctx.voice_client == None:
+            return await ctx.send("Not connected to a voice channel.")
+            
     @commands.command()
     async def play(self,ctx, *, searchterm):
         global queue
@@ -450,6 +463,87 @@ class Music(commands.Cog):
         del(queue[ctx.guild.id][0])
         vid_url=''
 
+    @commands.command(pass_context = True)
+    async def playbb(self,ctx,value:int,value1:int,*,searchterm):
+        #a = BytesIO()
+        attenuate_db = value1 #bass negative numbers makes earrape
+        accentuate_db = value
+
+        def bass_line_freq(track):
+            sample_track = list(track)
+
+            # c-value
+            est_mean = np.mean(sample_track)
+
+            # a-value
+            est_std = 3 * np.std(sample_track) / (math.sqrt(2))
+
+            bass_factor = int(round((est_std - est_mean) * 0.005))
+
+            return bass_factor
+
+        global queue
+        #global vid_url
+        #vid_url =''
+        #print(searchterm)
+        if ('youtube.com' in searchterm) or ('youtu.be' in searchterm):
+            #print('NO')
+            vid_url = searchterm
+            #print(vid_url)
+            try:
+                queue[ctx.guild.id].append(vid_url)
+            except:
+                queue[ctx.guild.id] = [vid_url]
+
+        #elif ('youtube.com' or 'youtu.be')not in searchterm:
+        else:
+            #print('YES')
+            videosearch = VideosSearch(searchterm,limit=1)
+            result = videosearch.result()
+            #print(result)
+            vid_url = result['result'][0]['link']
+            #print(vid_url)
+            try:
+                queue[ctx.guild.id].append(vid_url)
+            except:
+                queue[ctx.guild.id] = [vid_url]
+            
+
+        server = ctx.message.guild
+        voice_channel = server.voice_client
+
+        async with ctx.typing():
+            #vid_url = 'https://www.youtube.com/watch?v=n1-Jjxh5RgY'
+            pre_player = await YTDLSource.from_url(vid_url, loop=bot.loop,stream=True)
+            a = pickle.dumps(pre_player)
+            print(pre_player)
+            
+            song = AudioSegment(
+                data = a,
+                sample_width=2,
+                frame_rate=44100,
+                channels=2
+            )
+
+            
+            filtered = song.low_pass_filter(bass_line_freq(song.get_array_of_samples()))
+            combined = (song - attenuate_db).overlay(filtered + accentuate_db)
+            combined.export(a)
+            voice_channel.play(a, after=lambda e: print('Player error: %s' % e) if e else None)
+        
+        #print("start stack trace here")
+        #print(searchterm)
+        #print(vid_url)
+        videoInfo = Video.getInfo(vid_url, mode = ResultMode.dict)
+        #print(vid_url)
+        tn = videoInfo['thumbnails'][1]['url']
+        title = videoInfo['title']
+        embed = discord.Embed(color=0xb4eeb4,title = 'Music', description='**Now Playing: **'+title+'\n'+vid_url)
+        embed.set_thumbnail(url=tn)
+        await ctx.send(embed = embed)
+        del(queue[ctx.guild.id][0])
+        vid_url=''
+        
 #@commands.command()
 #async def play(ctx, *, url):
 #    async with ctx.typing():
@@ -457,9 +551,8 @@ class Music(commands.Cog):
 #            ctx.voice_client.play(player, after=lambda e: print('Player error: %s' % e) if e else None)
 #
 #            await ctx.send('Now playing: {}'.format(player.title))
+
 bot.add_cog(Music(bot))
-
-
 
 class FFmpegPCMAudio2(discord.AudioSource):
     def __init__(self, source, *, executable='ffmpeg', pipe=False, stderr=None, before_options=None, options=None):
@@ -557,9 +650,8 @@ class tts(commands.Cog):
     async def say(self,ctx,*,content):  
         print(active)
         if active[str(ctx.guild.id)][0] == 'Active':
-            mp3_fp.flush()
-            mp3_fp.seek(0)
             tts = gTTS(content,active[str(ctx.guild.id)][1],active[str(ctx.guild.id)][2],False)
+            mp3_fp.seek(0)
             tts.write_to_fp(mp3_fp)
             mp3_fp.seek(0)
             file = FFmpegPCMAudio2(mp3_fp.read(), pipe = True)
@@ -567,7 +659,6 @@ class tts(commands.Cog):
             voice = server.voice_client
             voice.play(file)
             #mp3_fp.close()
-            mp3_fp.flush()
             mp3_fp.seek(0)
         
         
@@ -639,7 +730,43 @@ class lfg(commands.Cog):
                     #await channel.send(embed=embed)
 
 bot.add_cog(lfg(bot))
-players = {}
+
+#painting
+img = np.zeros((512,512,3), np.uint8)
+window_name = 'Image'
+image_send = io.BytesIO()
+
+@bot.command()
+async def paint(ctx,x_cord:int,y_cord:int,r:int,g:int,b:int):
+    global image_send
+    #image = cv2.rectangle(img, (x_cord,y_cord), (x_cord+5,y_cord+5), (b,g,r), 3)
+    #color_coverted = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    pil_img=Image.fromarray(cv2.cvtColor(cv2.rectangle(img, (x_cord,y_cord), (x_cord+5,y_cord+5), (b,g,r),3), cv2.COLOR_BGR2RGB))
+    image_send.seek(0)
+    pil_img.save(image_send,format='PNG')
+    #image_send.seek(0)
+    #await ctx.send(file =discord.File(image_send,'test.png'))
+
+@bot.command()
+async def show(ctx):
+    image_send.seek(0)
+    await ctx.send(file =discord.File(image_send,'test.png'))
+
+@bot.command()
+async def img_back(ctx):
+    if ctx.message.author.id == 500150174925193246:
+        with open ('image_bytes', 'wb')as file:
+            file.write(image_send.getbuffer())
+
+@bot.command()
+async def load_img_back(ctx):
+    if ctx.message.author.id == 500150174925193246:
+        with open ('image_bytes', 'rb')as file:
+            image_send.seek(0)
+            image_send.write(file.read())
+
+# bot.load_extension('cogs.PaintCog')
+# players = {}
 
 
 #@bot.command()
@@ -647,4 +774,4 @@ players = {}
 #    channel = ctx.author.voice.channel
 #    await channel.connect()
 
-bot.run(TOKEN)
+bot.run('TOKEN')
